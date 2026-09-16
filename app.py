@@ -67,7 +67,8 @@ for v in range(51):
     vx = cur_val + (v * vernier_pitch)
     if v % 5 == 0:
         vy = -6
-        ax.text(vx, vy - 2.5, f"{v / 5:.1f}", ha='center', va='top', fontname='DejaVu Sans', fontsize=8.5, fontweight='bold', color=cTick)
+        # เปลี่ยนแสดงผลเป็นเลขจำนวนเต็ม (v // 5 แทนที่จะเป็น v / 5)
+        ax.text(vx, vy - 2.5, f"{v // 5}", ha='center', va='top', fontname='DejaVu Sans', fontsize=8.5, fontweight='bold', color=cTick)
     else:
         vy = -4
     ax.plot([vx, vx], [0, vy], color=cTick, linewidth=0.85)
@@ -76,7 +77,7 @@ ax.text(cur_val + 47, -11, '0.02 mm', fontsize=7.5, fontweight='bold', color=[0.
 
 st.pyplot(fig)
 
-# --- แผงควบคุม (ซ่อนตัวเลขบนสไลด์โดยใช้ค่า format=" ") ---
+# --- แผงควบคุม ---
 st.markdown("---")
 col_lbl, col_sld, col_btn = st.columns([1.5, 5, 2.5])
 
@@ -84,7 +85,6 @@ with col_lbl:
     st.markdown("**Fine Adjust:**")
 
 with col_sld:
-    # ซ่อนตัวเลขสีแดงบนปุ่มเลื่อน โดยกำหนด format=" "
     slider_val = st.slider(
         "Fine Adjust",
         min_value=0.0,
