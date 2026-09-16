@@ -2,79 +2,124 @@ import streamlit as st
 import matplotlib.pyplot as plt
 import numpy as np
 
-st.set_page_config(page_title="Interactive Vernier Caliper Simulator (0.02 mm)", layout="centered")
+# ตั้งค่าหน้าเว็บให้จำลองหน้าต่าง Figure ของ MATLAB (Position: 1100x480)
+st.set_page_config(
+    page_title="Interactive Vernier Caliper Simulator (0.02 mm)",
+    layout="centered"
+)
 
-st.markdown("## 🎯 ฝึกอ่านค่าเวอร์เนียร์คาลิเปอร์ (ความละเอียด 0.02 มม.)")
-st.write("เลื่อนสไลด์ด้านล่างเพื่อปรับเปลี่ยนระยะห่าง แล้วฝึกอ่านค่าจากสเกลด้วยตัวเอง จากนั้นกดปุ่มตรวจคำตอบด้านล่าง")
+# จำลอง MenuBar และ Title ของ MATLAB Figure
+st.markdown(
+    """
+    <div style="background-color: #f0f0f1; padding: 6px 12px; border-top-left-radius: 6px; border-top-right-radius: 6px; border: 1px solid #d0d0d5; font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: bold; color: #333;">
+        Interactive Vernier Caliper Simulator (0.02 mm)
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# Initialize session state
-if "val" not in st.session_state:
-    st.session_state.val = 12.42
+# ค่าเริ่มต้น (Initial value) ตรงกับต้นฉบับ MATLAB
+if "current_val" not in st.session_state:
+    st.session_state.current_val = 12.42
 
 if "show_answer" not in st.session_state:
     st.session_state.show_answer = False
 
-# Slider for control
-val = st.slider("ปรับระยะห่าง (มม.):", 0.0, 30.0, st.session_state.val, 0.02)
-st.session_state.val = val
+# ฟังก์ชันปัดเศษตามความละเอียด 0.02 มม.
+def update_val(v):
+    v = round(v / 0.02) * 0.02
+    st.session_state.current_val = max(0.0, min(30.0, v))
 
-# Create Matplotlib Figure (designed to mimic MATLAB layout)
+# --- 1. สร้าง Main Figure & Axes (จำลอง Axis ของ MATLAB) ---
 fig, ax = plt.subplots(figsize=(11, 4.5))
+fig.patch.set_facecolor('#f0f0f1')
+ax.set_facecolor('#f0f0f1')
 ax.set_aspect("equal")
 ax.set_xlim(-10, 85)
 ax.set_ylim(-25, 20)
 ax.axis("off")
 
-# 1. Draw Fixed Main Beam & Main Jaw
-ax.fill([-8, 87, 87, -8], [-6, -6, 16, 16], color="#E8E8EA", ec="#99999D", lw=1.5)
-ax.fill([-8, 0, 0, -8], [-6, -6, -22, -22], color="#DCDCE0", ec="#99999D", lw=1.5)
+cTick = [0.15, 0.15, 0.15]
+
+# --- 2. Draw Fixed Main Beam (ลำตัวหลักและปากวัดคงที่) ---
+# Main body rectangle
+main_body = plt.Rectangle((-8, -6), 95, 22, facecolor=[0.91, 0.91, 0.92], edgecolor=[0.60, 0.60, 0.63], linewidth=1.5)
+ax.add_patch(main_body)
+
+# Main jaw (fixed) patch
+fixed_jaw = plt.Polygon([[-8, -6], [0, -6], [0, -22], [-8, -22]], facecolor=[0.86, 0.86, 0.88], edgecolor=[0.60, 0.60, 0.63], linewidth=1.5)
+ax.add_patch(fixed_jaw)
 
 # Main scale divisions (0 to 80 mm)
-cTick = "#262626"
 for m in range(0, 81):
     if m % 10 == 0:
         y2 = 8
-        ax.text(m, y2 + 2.5, str(m), ha="center", va="bottom", fontsize=9.5, fontweight="bold", color=cTick)
+        ax.text(m, y2 + 2.5, str(m), ha='center', va='bottom', fontname='DejaVu Sans', fontsize=9.5, fontweight='bold', color=cTick)
     elif m % 5 == 0:
         y2 = 5.5
     else:
         y2 = 3.5
-    ax.plot([m, m], [0, y2], color=cTick, lw=0.9)
+    ax.plot([m, m], [0, y2], color=cTick, linewidth=0.9)
 
-# 2. Vernier Movable Jaw & Body (Shifted by current value)
-v_pos = st.session_state.val
+# --- 3. Slider Component Handles (Vernier Movable Scale & Jaw) ---
+cur_val = st.session_state.current_val
 
-# Vernier body polygon offset by v_pos
-vx_coords = np.array([0, 0, 52, 52, 10, 0]) + v_pos
-vy_coords = np.array([-22, 0, 0, -14, -14, -22])
-ax.fill(vx_coords, vy_coords, color="#D2D3D8", ec="#80808A", lw=1.3)
+# Vernier movable jaw & body (เลื่อนตามค่า cur_val)
+vx_base = np.array([0, 0, 52, 52, 10, 0]) + cur_val
+vy_base = np.array([-22, 0, 0, -14, -14, -22])
+vernier_body = plt.Polygon(np.column_stack((vx_base, vy_base)), facecolor=[0.82, 0.83, 0.86], edgecolor=[0.50, 0.50, 0.55], linewidth=1.3)
+ax.add_patch(vernier_body)
 
 # Vernier scale ticks (50 divisions = 49 mm)
 vernier_pitch = 49 / 50
 for v in range(51):
-    vx = v_pos + (v * vernier_pitch)
+    vx = cur_val + (v * vernier_pitch)
     if v % 5 == 0:
         vy = -6
-        ax.text(vx, vy - 2.5, f"{v / 5:.1f}", ha="center", va="top", fontsize=8.5, fontweight="bold", color=cTick)
+        ax.text(vx, vy - 2.5, f"{v / 5:.1f}", ha='center', va='top', fontname='DejaVu Sans', fontsize=8.5, fontweight='bold', color=cTick)
     else:
         vy = -4
-    ax.plot([vx, vx], [0, vy], color=cTick, lw=0.85)
+    ax.plot([vx, vx], [0, vy], color=cTick, linewidth=0.85)
 
-ax.text(v_pos + 47, -11, '0.02 mm', fontsize=7.5, fontweight='bold', color='#4D4D4D', ha='center')
+ax.text(cur_val + 47, -11, '0.02 mm', fontsize=7.5, fontweight='bold', color=[0.3, 0.3, 0.3], ha='center')
 
 st.pyplot(fig)
 
-# --- Teacher Controls & Answer Section ---
-col1, col2 = st.columns([1, 1])
+# --- 4. Control Panel & Teacher Controls (จำลอง uicontrol ของ MATLAB) ---
+st.markdown("---")
+col_lbl, col_sld, col_btn = st.columns([1.5, 5, 2.5])
 
-with col1:
-    if st.button("👁️ เปิด / ปิด เฉลยคำตอบ", use_container_width=True):
+with col_lbl:
+    st.markdown("**Fine Adjust:**")
+
+with col_sld:
+    # uicontrol Slider 0 ถึง 30 มม.
+    slider_val = st.slider(
+        "Fine Adjust",
+        min_value=0.0,
+        max_value=30.0,
+        value=cur_val,
+        step=0.02,
+        label_visibility="collapsed"
+    )
+    if slider_val != cur_val:
+        update_val(slider_val)
+        st.rerun()
+
+with col_btn:
+    # uicontrol Pushbutton (Toggle Answer)
+    btn_label = "Hide Answer" if st.session_state.show_answer else "Show Answer"
+    if st.button(btn_label, use_container_width=True):
         st.session_state.show_answer = not st.session_state.show_answer
+        st.rerun()
+
+# --- Readout Text / Hidden Answer Display (จำลอง annotation textbox) ---
+m_part = int(st.session_state.current_val)
+v_div = round((st.session_state.current_val % 1) / 0.02)
+v_part = v_div * 0.02
 
 if st.session_state.show_answer:
-    m_part = int(st.session_state.val)
-    v_div = round((st.session_state.val % 1) / 0.02)
-    v_part = v_div * 0.02
-    st.success(f"### 💡 คำตอบที่ถูกต้อง: {m_part}.00 + {v_part:.2f} = **{st.session_state.val:.2f} มม.** (สเกลย่อยช่องที่: {v_div})")
+    box_text = f"Reading: {m_part}.00 + {v_part:.2f} = {st.session_state.current_val:.2f} mm (Division: {v_div})"
+    st.success(f"**{box_text}**")
 else:
-    st.info("### 🔒 สถานะ: ซ่อนคำตอบอยู่ (ให้เด็กๆ ลองอ่านค่าจากสเกลเองก่อน)")
+    st.info("**??? mm (Answer Hidden)**")
